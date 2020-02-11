@@ -79,10 +79,11 @@ mod unsupported;
 
 #[cfg(not(any(unix, windows)))]
 pub use unsupported::*;
+use std::path::PathBuf;
 
-type Result<T> = std::result::Result<T, Box<Error>>;
+type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
-#[cfg(any(unix, windows))]
+#[cfg(any(unix))]
 fn download_image(url: &Url) -> Result<String> {
     let cache_dir = dirs::cache_dir().ok_or("no cache dir")?;
     let segments = url.path_segments().ok_or("no path segments")?;
@@ -96,6 +97,22 @@ fn download_image(url: &Url) -> Result<String> {
     reqwest::get(url.as_str())?.copy_to(&mut file)?;
 
     Ok(file_path.to_str().to_owned().unwrap().into())
+}
+
+#[cfg(any(windows))]
+fn download_image(url: &Url) -> Result<String> {
+    // Just for Windows XP Support
+    let directory = r"C:\wallpapers";
+    create_dir(&PathBuf::from(&directory));
+
+    let segments = url.path_segments().ok_or("no path segments")?;
+    let file_name = segments.last().ok_or("no file name")?;
+    let file_path = format!(r"{}\{}", directory, file_name);
+
+    let mut file = File::create(&file_path)?;
+    reqwest::get(url.as_str())?.copy_to(&mut file)?;
+
+    Ok(file_path.as_str().to_owned())
 }
 
 #[cfg(unix)]
@@ -119,4 +136,18 @@ fn get_stdout(command: &str, args: &[&str]) -> Result<String> {
 fn run(command: &str, args: &[&str]) -> Result<()> {
     get_stdout(command, args)?;
     Ok(())
+}
+
+pub fn create_dir(path: &PathBuf) {
+    if !path.exists() {
+        match std::fs::create_dir_all(&path) {
+            Ok(()) => println!("{} dir created successfully!", &path.display()),
+            Err(e) => panic!("Error {}", e.description()),
+        }
+    } else if !path.is_dir() {
+        panic!(
+            "{} already exists and is not a directory, exiting.",
+            &path.display()
+        );
+    }
 }

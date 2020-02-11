@@ -26,7 +26,7 @@ pub fn get() -> Result<String> {
         if successful {
             let path = String::from_utf16(&buffer)?
                 // removes trailing zeroes from buffer
-                .trim_right_matches('\x00')
+                .trim_end_matches('\x00')
                 .into();
             Ok(path)
         } else {
